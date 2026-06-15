@@ -19,6 +19,7 @@ jobs:
           node-version: '18'
 
       - name: Install Dependencies
+        working-directory: ./www
         run: npm install
 
       - name: Setup Java JDK
@@ -28,7 +29,7 @@ jobs:
           java-version: '17'
 
       - name: Build APK
-        working-directory: ./android
+        working-directory: ./www/android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug
@@ -37,4 +38,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: www/android/app/build/outputs/apk/debug/app-debug.apk
