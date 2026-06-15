@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIR NASIR</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            width: 100%;
+            zoom: 0.8;
+            background-color: #f3f4f6;
+        }
+        .hidden { display: none !important; }
+        textarea { white-space: pre-wrap; }
+    </style>
+</head>
+<body class="text-gray-800 font-sans">
+
+    <nav class="bg-blue-600 text-white p-4 shadow-md w-full">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">MIR NASIR</h1>
+            <div class="space-x-4">
+                <button onclick="switchTab('uploadTab')" class="hover:text-gray-200 font-semibold">Upload Video</button>
+                <button onclick="switchTab('listTab'); loadVideos();" class="hover:text-gray-200 font-semibold">Video List</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Upload Section -->
+    <div id="uploadTab" class="max-w-4xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 border-b pb-2">Upload New Video</h2>
+        <form id="uploadForm" class="space-y-4">
+            <div id="dropZone" class="border-2 border-dashed border-gray-400 rounded-lg p-6 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                <label class="block font-semibold mb-1 cursor-pointer">Select Video or Drag & Drop Here</label>
+                <input type="file" id="videoFile" accept="video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required>
+                <p id="fileNameDisplay" class="text-sm text-gray-500 mt-2">No file selected</p>
+            </div>
+            <div>
+                <label class="block font-semibold mb-1">Title</label>
+                <input type="text" id="videoTitle" class="w-full border p-2 rounded" required>
+            </div>
+            <div>
+                <label class="block font-semibold mb-1">Description</label>
+                <textarea id="videoDesc" rows="4" class="w-full border p-2 rounded" required></textarea>
+            </div>
+            <div>
+                <label class="block font-semibold mb-1">Tags (separated by comma)</label>
+                <textarea id="videoTags" rows="2" class="w-full border p-2 rounded" required></textarea>
+            </div>
+            <button type="submit" class="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 transition">Upload to Cloudinary</button>
+        </form>
+
+        <div id="uploadProgressContainer" class="hidden mt-6">
+            <div class="flex justify-between mb-1 text-sm">
+                <span class="font-semibold text-gray-700">Uploading... <span id="uploadBytes" class="font-normal text-gray-500">(0 MB / 0 MB)</span></span>
+                <span id="uploadPercent" class="font-bold text-blue-600">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="uploadBar" class="bg-blue-600 h-4 rounded-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video List Section -->
+    <div id="listTab" class="hidden max-w-6xl mx-auto mt-8 p-4 sm:p-6 bg-white rounded-lg shadow-lg">
+        <h2 class="text-2xl font-bold mb-6 border-b pb-2">Uploaded Videos</h2>
+        <div id="videoContainer" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"></div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="videoPlayerModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden relative">
+            <div class="flex justify-between items-center p-4 bg-gray-100 border-b">
+                <h3 id="videoPlayerTitle" class="text-lg font-bold truncate pr-4">Play Video</h3>
+                <button onclick="closeVideoModal()" class="text-red-600 font-bold hover:text-red-800 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-0 bg-black flex justify-center aspect-video">
+                <video id="videoPlayer" controls class="w-full h-full max-h-[80vh] object-contain">
+                    <source id="videoPlayerSource" src="" type="video/mp4">
+                    Your browser does not support HTML video.
+                </video>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+            <h3 class="text-xl font-bold mb-4">Edit Video</h3>
+            <form id="editForm" class="space-y-4">
+                <input type="hidden" id="editVideoId">
+                <div>
+                    <label class="block font-semibold mb-1">Title</label>
+                    <input type="text" id="editVideoTitle" class="w-full border p-2 rounded" required>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Description</label>
+                    <textarea id="editVideoDesc" rows="4" class="w-full border p-2 rounded" required></textarea>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Tags (separated by comma)</label>
+                    <textarea id="editVideoTags" rows="2" class="w-full border p-2 rounded" required></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 mt-4">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+                    <button type="submit" id="saveEditBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 class="text-xl font-bold mb-4">Confirm Deletion</h3>
+            <p class="mb-6 text-gray-600">Are you sure you want to delete this video? This removes it from Cloudinary and Supabase.</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">No, Cancel</button>
+                <button id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="hidden fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-3 rounded shadow-lg transition-opacity duration-300 flex items-center z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        const API_BASE_URL = "https://nasir-backend.onrender.com"; 
+
+        let deleteData = null;
+
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMessage').innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => { toast.classList.add('hidden'); }, 3000);
+        }
+
+        function switchTab(tabId) {
+            document.getElementById('uploadTab').classList.add('hidden');
+            document.getElementById('listTab').classList.add('hidden');
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard successfully!');
+            });
+        }
+
+        // Drag and Drop Setup
+        const fileInput = document.getElementById('videoFile');
+        const dropZone = document.getElementById('dropZone');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                fileNameDisplay.innerText = this.files[0].name;
+                dropZone.classList.add('bg-blue-50', 'border-blue-400');
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-gray-100', 'border-blue-500'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('bg-gray-100', 'border-blue-500'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-gray-100', 'border-blue-500');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                fileNameDisplay.innerText = e.dataTransfer.files[0].name;
+                dropZone.classList.add('bg-blue-50', 'border-blue-400');
+            }
+        });
+
+        // Binary Upload Handler
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            document.getElementById('uploadProgressContainer').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('video', file);
+            formData.append('title', document.getElementById('videoTitle').value);
+            formData.append('description', document.getElementById('videoDesc').value);
+            formData.append('tags', document.getElementById('videoTags').value);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_BASE_URL}/api/upload`, true);
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    const mbLoaded = (e.loaded / (1024 * 1024)).toFixed(2);
+                    const mbTotal = (e.total / (1024 * 1024)).toFixed(2);
+                    
+                    document.getElementById('uploadPercent').innerText = percent + "%";
+                    document.getElementById('uploadBar').style.width = percent + "%";
+                    document.getElementById('uploadBytes').innerText = `(${mbLoaded} MB / ${mbTotal} MB)`;
+                }
+            };
+
+            xhr.onload = function() {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    showToast('Upload Complete!');
+                    document.getElementById('uploadForm').reset();
+                    fileNameDisplay.innerText = "No file selected";
+                    dropZone.classList.remove('bg-blue-50', 'border-blue-400');
+                } else {
+                    showToast('Upload Failed: ' + res.error);
+                }
+                document.getElementById('uploadProgressContainer').classList.add('hidden');
+            };
+
+            xhr.send(formData);
+        });
+
+        // Load Videos
+        function loadVideos() {
+            const container = document.getElementById('videoContainer');
+            container.innerHTML = "<p>Loading videos...</p>";
+
+            fetch(`${API_BASE_URL}/api/videos`)
+            .then(res => res.json())
+            .then(res => {
+                if (res.success && res.data.length > 0) {
+                    window.videosList = res.data; // Store for easy editing
+                    container.innerHTML = "";
+                    res.data.forEach(video => {
+                        // Generate a valid auto-thumbnail URL from Cloudinary video source link
+                        const thumbUrl = video.video_url.replace(/\/upload\//, '/upload/c_fill,w_300,h_400,f_jpg/');
+                        const card = document.createElement('div');
+                        card.className = "bg-gray-50 border p-2 sm:p-4 rounded shadow relative";
+                        card.innerHTML = `
+                            <div class="mb-3 border-b pb-2">
+                                <div class="relative cursor-pointer group" onclick="playVideo('${video.id}')">
+                                    <img src="${thumbUrl}" class="w-full aspect-[3/4] object-cover rounded mb-2 bg-gray-200">
+                                    <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded mb-2">
+                                        <svg class="w-16 h-16 text-white opacity-80 hover:opacity-100" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                    </div>
+                                </div>
+                                <h3 class="font-bold text-sm sm:text-lg mb-2 line-clamp-2" title="${video.title}">${video.title}</h3>
+                                <div class="flex flex-wrap gap-1">
+                                    <button onclick="copyText('${video.title.replace(/'/g, "\\'")}')" class="text-[10px] sm:text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Copy Title</button>
+                                    <button onclick="copyText('${video.description.replace(/\n/g, '\\n').replace(/'/g, "\\'")}')" class="text-[10px] sm:text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Copy Desc</button>
+                                    <button onclick="copyText('${video.tags.replace(/'/g, "\\'")}')" class="text-[10px] sm:text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Copy Tags</button>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="text-xs font-semibold">Status:</label>
+                                <select onchange="updateStatus('${video.id}', this.value)" class="w-full mt-1 p-1 border rounded bg-white">
+                                    <option value="Pending" ${video.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="Uploaded" ${video.status === 'Uploaded' ? 'selected' : ''}>Uploaded</option>
+                                </select>
+                            </div>
+                            <div class="flex flex-col space-y-2 mt-4">
+                                <button onclick="downloadVideo('${video.video_url}', '${video.id}', '${video.title.replace(/'/g, "\\'")}')" id="btn-download-${video.id}" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Download Video</button>
+                                <div id="dl-progress-${video.id}" class="hidden w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div id="dl-bar-${video.id}" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <div class="relative inline-block w-full text-left">
+                                    <button onclick="toggleActionMenu('${video.id}')" class="w-full bg-gray-700 text-white py-2 rounded hover:bg-gray-800 flex justify-center items-center">
+                                        Actions
+                                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </button>
+                                    <div id="action-menu-${video.id}" class="hidden absolute right-0 bottom-full mb-1 z-20 w-full bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5">
+                                        <div class="py-1" role="menu">
+                                            <button onclick="openEditModal('${video.id}')" class="w-full text-left block px-4 py-2 text-sm text-blue-700 hover:bg-gray-100 font-semibold border-b">Edit Details</button>
+                                            <button onclick="promptDelete('${video.id}', '${video.video_url}')" class="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 font-semibold">Delete Video</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML = "<p>No videos found.</p>";
+                }
+            });
+        }
+
+        function updateStatus(id, status) {
+            fetch(`${API_BASE_URL}/api/update-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status })
+            }).then(() => showToast('Status updated!'));
+        }
+
+        function promptDelete(id, video_url) {
+            deleteData = { id, video_url };
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteData = null;
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (!deleteData) return;
+            const btn = this;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5 mr-2 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Deleting...`;
+
+            fetch(`${API_BASE_URL}/api/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(deleteData)
+            }).then(res => res.json()).then(() => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                closeModal();
+                loadVideos();
+                showToast('Video Deleted');
+            });
+        });
+
+        // Download Video with Progress Tracking
+        function downloadVideo(url, id, title) {
+            const btn = document.getElementById(`btn-download-${id}`);
+            const progressContainer = document.getElementById(`dl-progress-${id}`);
+            const bar = document.getElementById(`dl-bar-${id}`);
+
+            btn.innerText = "Starting Download...";
+            progressContainer.classList.remove('hidden');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'blob';
+
+            xhr.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    bar.style.width = percent + "%";
+                    btn.innerText = `Downloading... ${percent}%`;
+                }
+            };
+
+            xhr.onload = function() {
+                if (this.status === 200) {
+                    const blob = this.response;
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `${title}.mp4`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    btn.innerText = "Download Complete";
+                    setTimeout(() => { btn.innerText = "Download Video"; progressContainer.classList.add('hidden'); }, 3000);
+                }
+            };
+            xhr.send();
+        }
+
+        // --- Action Menu Toggle ---
+        function toggleActionMenu(id) {
+            const menus = document.querySelectorAll('[id^="action-menu-"]');
+            menus.forEach(menu => {
+                if (menu.id !== `action-menu-${id}`) menu.classList.add('hidden');
+            });
+            document.getElementById(`action-menu-${id}`).classList.toggle('hidden');
+        }
+
+        // Action menu close on click outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.inline-block.w-full.text-left')) {
+                document.querySelectorAll('[id^="action-menu-"]').forEach(menu => menu.classList.add('hidden'));
+            }
+        });
+
+        // --- Video Player Functions ---
+        function playVideo(id) {
+            const video = window.videosList.find(v => v.id === id);
+            if (!video) return;
+            const modal = document.getElementById('videoPlayerModal');
+            const player = document.getElementById('videoPlayer');
+            const source = document.getElementById('videoPlayerSource');
+            
+            document.getElementById('videoPlayerTitle').innerText = video.title;
+            source.src = video.video_url;
+            player.load();
+            modal.classList.remove('hidden');
+            player.play();
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoPlayerModal');
+            const player = document.getElementById('videoPlayer');
+            player.pause();
+            player.currentTime = 0;
+            modal.classList.add('hidden');
+        }
+
+        // --- Edit Video Functions ---
+        function openEditModal(id) {
+            const video = window.videosList.find(v => v.id === id);
+            if (!video) return;
+            document.getElementById('editVideoId').value = video.id;
+            document.getElementById('editVideoTitle').value = video.title;
+            document.getElementById('editVideoDesc').value = video.description;
+            document.getElementById('editVideoTags').value = video.tags;
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById(`action-menu-${id}`).classList.add('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveEditBtn');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "Saving...";
+
+            const updateData = {
+                id: document.getElementById('editVideoId').value,
+                title: document.getElementById('editVideoTitle').value,
+                description: document.getElementById('editVideoDesc').value,
+                tags: document.getElementById('editVideoTags').value
+            };
+
+            fetch(`${API_BASE_URL}/api/update-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            })
+            .then(async (res) => {
+                if (!res.ok) throw new Error('Server Error: ' + res.status);
+                return res.json();
+            })
+            .then(res => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                if (res.success) {
+                    showToast('Video details updated successfully!');
+                    closeEditModal();
+                    loadVideos(); // Auto refresh changes
+                } else {
+                    showToast('Update failed: ' + res.error);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast('Failed to connect. Did you restart the server?');
+                console.error('Update Error:', err);
+            });
+        });
+    </script>
+</body>
+</html>
